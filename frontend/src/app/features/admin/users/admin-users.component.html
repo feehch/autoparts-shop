@@ -1,0 +1,128 @@
+<div class="page-head">
+  <h1>Пользователи</h1>
+  @if (!createOpen()) {
+    <button type="button" class="btn btn-primary" (click)="openCreate()">+ Новый пользователь</button>
+  }
+</div>
+
+@if (createOpen()) {
+  <form class="card form-card wide" [formGroup]="createForm" (ngSubmit)="create()" novalidate>
+    <h3>Новый пользователь</h3>
+    <div class="grid-2">
+      <label class="field">
+        <span>Имя</span>
+        <input formControlName="firstName" />
+        <app-field-error [control]="createForm.controls.firstName" />
+      </label>
+      <label class="field">
+        <span>Фамилия</span>
+        <input formControlName="lastName" />
+        <app-field-error [control]="createForm.controls.lastName" />
+      </label>
+      <label class="field">
+        <span>Email</span>
+        <input type="email" formControlName="email" autocomplete="off" />
+        <app-field-error [control]="createForm.controls.email" />
+      </label>
+      <label class="field">
+        <span>Телефон <span class="muted">(необязательно)</span></span>
+        <input type="tel" formControlName="phone" appPhoneMask placeholder="+375 (29) 123-45-67" />
+        <app-field-error [control]="createForm.controls.phone" />
+      </label>
+      <label class="field">
+        <span>Пароль</span>
+        <input type="password" formControlName="password" autocomplete="new-password" />
+        <app-field-error [control]="createForm.controls.password" />
+      </label>
+      <div class="field">
+        <span>Роли</span>
+        <div class="checkbox-row">
+          @for (r of roles(); track r.name) {
+            <label class="checkbox">
+              <input type="checkbox" [checked]="newRoles().has(r.name)" (change)="toggleNewRole(r.name)" />
+              <span>{{ r.description || (r.name | roleName) }}</span>
+            </label>
+          }
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-ghost" (click)="createOpen.set(false)">Отмена</button>
+      <button type="submit" class="btn btn-primary" [disabled]="creating()">Создать</button>
+    </div>
+  </form>
+}
+
+<form class="card toolbar-card" (ngSubmit)="load(0)">
+  <input type="search" name="q" [(ngModel)]="q" placeholder="Email или имя" class="grow" />
+  <select name="role" [(ngModel)]="role" (ngModelChange)="load(0)">
+    <option [ngValue]="null">Все роли</option>
+    @for (r of roles(); track r.name) {
+      <option [ngValue]="r.name">{{ r.description || (r.name | roleName) }}</option>
+    }
+  </select>
+  <button type="submit" class="btn btn-ghost">Найти</button>
+</form>
+
+@if (page(); as p) {
+  <div class="card table-wrap" [class.dimmed]="loading()">
+    <table class="table">
+      <thead>
+        <tr><th>Пользователь</th><th>Телефон</th><th>Роли</th><th>Создан</th><th>Доступ</th></tr>
+      </thead>
+      <tbody>
+        @for (u of p.content; track u.id) {
+          <tr [class.row-muted]="!u.enabled">
+            <td>
+              <div class="strong">{{ u.firstName }} {{ u.lastName }} @if (isSelf(u)) {<span class="muted small">(вы)</span>}</div>
+              <div class="muted small">{{ u.email }}</div>
+            </td>
+            <td class="nowrap">{{ (u.phone | phone) || '—' }}</td>
+            <td>
+              @if (editingRolesFor() === u.id) {
+                <div class="checkbox-col">
+                  @for (r of roles(); track r.name) {
+                    <label class="checkbox">
+                      <input
+                        type="checkbox"
+                        [checked]="editRoles().has(r.name)"
+                        [disabled]="isSelf(u) && r.name === 'ADMIN'"
+                        (change)="toggleEditRole(r.name)"
+                      />
+                      <span>{{ r.name | roleName }}</span>
+                    </label>
+                  }
+                  <div class="btn-row">
+                    <button type="button" class="btn btn-primary btn-xs" (click)="saveRoles(u)">Сохранить</button>
+                    <button type="button" class="btn btn-ghost btn-xs" (click)="editingRolesFor.set(null)">Отмена</button>
+                  </div>
+                </div>
+              } @else {
+                <div class="role-list">
+                  @for (r of u.roles; track r) {
+                    <span class="badge role-{{ r.toLowerCase() }}">{{ r | roleName }}</span>
+                  }
+                  <button type="button" class="link small" (click)="startEditRoles(u)">изменить</button>
+                </div>
+              }
+            </td>
+            <td class="nowrap small">{{ u.createdAt | date: 'dd.MM.yyyy' }}</td>
+            <td>
+              <label class="switch" [title]="u.enabled ? 'Активен — нажмите, чтобы заблокировать' : 'Заблокирован — нажмите, чтобы разблокировать'">
+                <input type="checkbox" [checked]="u.enabled" [disabled]="isSelf(u)" (click)="$event.preventDefault(); toggleEnabled(u)" />
+                <span class="slider"></span>
+                <span class="small">{{ u.enabled ? 'Активен' : 'Заблокирован' }}</span>
+              </label>
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="5" class="muted center">Пользователи не найдены</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <div class="table-foot">
+    <span class="muted small">Всего: {{ p.totalElements }}</span>
+    <app-pagination [page]="p.page" [totalPages]="p.totalPages" (pageChange)="load($event)" />
+  </div>
+}

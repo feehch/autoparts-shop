@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: autoparts-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/autoparts}
+    username: ${DB_USERNAME:autoparts}
+    password: ${DB_PASSWORD:autoparts}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+  cache:
+    type: redis
+  jackson:
+    time-zone: UTC
+    deserialization:
+      fail-on-unknown-properties: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+app:
+  jwt:
+    # В продакшене обязательно переопределить через переменную окружения JWT_SECRET (не короче 32 символов)
+    secret: ${JWT_SECRET:dev-only-secret-change-me-please-0123456789abcdef}
+    issuer: autoparts
+    access-token-ttl: ${JWT_ACCESS_TTL:15m}
+    refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+  seed:
+    demo-users: ${SEED_DEMO_USERS:true}
+
+logging:
+  level:
+    root: INFO
+    feehch.dev.autoparts: INFO

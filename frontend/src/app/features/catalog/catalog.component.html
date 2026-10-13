@@ -1,0 +1,184 @@
+<div class="container catalog-page">
+  <div class="page-head">
+    <div>
+      <h1>Каталог запчастей</h1>
+      @if (params().q) {
+        <p class="muted">Результаты поиска по запросу «{{ params().q }}»</p>
+      } @else {
+        <p class="muted">Оригинальные и неоригинальные запчасти для легковых автомобилей</p>
+      }
+    </div>
+    <button type="button" class="btn btn-ghost show-md" (click)="filtersOpen.set(!filtersOpen())">
+      {{ filtersOpen() ? 'Скрыть фильтры' : 'Фильтры' }}
+    </button>
+  </div>
+
+  <div class="catalog-layout">
+    <aside class="filters" [class.open]="filtersOpen()">
+      <!-- Подбор по автомобилю -->
+      <section class="filter-block car-picker">
+        <h3>Подбор по автомобилю</h3>
+        <label class="field">
+          <span>Марка</span>
+          <select [ngModel]="params().makeId ?? ''" (ngModelChange)="onMakeChange($event)">
+            <option value="">Все марки</option>
+            @for (m of makes(); track m.id) {
+              <option [value]="m.id">{{ m.name }}</option>
+            }
+          </select>
+        </label>
+        <label class="field">
+          <span>Модель</span>
+          <select
+            [ngModel]="params().modelId ?? ''"
+            (ngModelChange)="update({ modelId: $event || null })"
+            [disabled]="!params().makeId"
+          >
+            <option value="">Все модели</option>
+            @for (m of models(); track m.id) {
+              <option [value]="m.id">{{ m.name }} ({{ m.yearFrom ?? '…' }}–{{ m.yearTo ?? 'н.в.' }})</option>
+            }
+          </select>
+        </label>
+      </section>
+
+      <!-- Категории -->
+      <section class="filter-block">
+        <h3>Категории</h3>
+        <ul class="cat-tree">
+          <li>
+            <button type="button" class="cat-item" [class.active]="!params().categoryId" (click)="selectCategory(null)">
+              Все категории
+            </button>
+          </li>
+          <ng-container *ngTemplateOutlet="nodes; context: { $implicit: tree() }" />
+        </ul>
+        <ng-template #nodes let-list>
+          @for (n of list; track n.id) {
+            <li>
+              <div class="cat-row" [style.padding-left.px]="n.depth * 14">
+                @if (n.children.length) {
+                  <button type="button" class="cat-toggle" (click)="toggleNode(n.id, $event)" [attr.aria-label]="'Раскрыть ' + n.name">
+                    {{ expanded().has(n.id) ? '▾' : '▸' }}
+                  </button>
+                } @else {
+                  <span class="cat-toggle-spacer"></span>
+                }
+                <button type="button" class="cat-item" [class.active]="params().categoryId === n.id" (click)="selectCategory(n)">
+                  {{ n.name }}
+                </button>
+              </div>
+              @if (n.children.length && expanded().has(n.id)) {
+                <ul>
+                  <ng-container *ngTemplateOutlet="nodes; context: { $implicit: n.children }" />
+                </ul>
+              }
+            </li>
+          }
+        </ng-template>
+      </section>
+
+      <!-- Бренд -->
+      <section class="filter-block">
+        <h3>Производитель</h3>
+        <select [ngModel]="params().brandId ?? ''" (ngModelChange)="update({ brandId: $event || null })">
+          <option value="">Все производители</option>
+          @for (b of brands(); track b.id) {
+            <option [value]="b.id">{{ b.name }}</option>
+          }
+        </select>
+      </section>
+
+      <!-- Цена -->
+      <section class="filter-block">
+        <h3>Цена, BYN</h3>
+        <form class="price-range" (ngSubmit)="applyPrice()">
+          <input type="number" min="0" name="minPrice" placeholder="от" [(ngModel)]="minPrice" />
+          <span>—</span>
+          <input type="number" min="0" name="maxPrice" placeholder="до" [(ngModel)]="maxPrice" />
+          <button type="submit" class="btn btn-ghost btn-sm">OK</button>
+        </form>
+      </section>
+
+      <section class="filter-block">
+        <label class="checkbox">
+          <input type="checkbox" [ngModel]="params().inStock" (ngModelChange)="update({ inStock: $event || null })" />
+          <span>Только в наличии</span>
+        </label>
+      </section>
+
+      @if (hasFilters()) {
+        <button type="button" class="btn btn-ghost btn-block" (click)="resetAll()">Сбросить фильтры</button>
+      }
+    </aside>
+
+    <section class="catalog-main">
+      <div class="toolbar">
+        <div class="chips">
+          @if (params().q) {
+            <button type="button" class="chip" (click)="update({ q: null })">«{{ params().q }}» ×</button>
+          }
+          @if (selectedCategory(); as c) {
+            <button type="button" class="chip" (click)="update({ categoryId: null })">{{ c.name }} ×</button>
+          }
+          @if (selectedBrand(); as b) {
+            <button type="button" class="chip" (click)="update({ brandId: null })">{{ b.name }} ×</button>
+          }
+          @if (selectedMake(); as m) {
+            <button type="button" class="chip" (click)="update({ makeId: null, modelId: null })">
+              {{ m.name }}{{ selectedModel() ? ' ' + selectedModel()!.name : '' }} ×
+            </button>
+          }
+          @if (params().minPrice != null || params().maxPrice != null) {
+            <button type="button" class="chip" (click)="update({ minPrice: null, maxPrice: null })">
+              {{ params().minPrice ?? 0 }} – {{ params().maxPrice ?? '∞' }} BYN ×
+            </button>
+          }
+          @if (params().inStock) {
+            <button type="button" class="chip" (click)="update({ inStock: null })">В наличии ×</button>
+          }
+          @if (result(); as r) {
+            <span class="muted small">Найдено: {{ r.totalElements }}</span>
+          }
+        </div>
+        <label class="sort">
+          <span class="muted small">Сортировка</span>
+          <select [ngModel]="params().sort" (ngModelChange)="update({ sort: $event === 'name,asc' ? null : $event })">
+            @for (o of sortOptions; track o.value) {
+              <option [value]="o.value">{{ o.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      @if (loading() && !result()) {
+        <div class="product-grid">
+          @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+            <div class="card skeleton-card"></div>
+          }
+        </div>
+      } @else if (result(); as r) {
+        @if (r.content.length) {
+          <div class="product-grid" [class.dimmed]="loading()">
+            @for (p of r.content; track p.id) {
+              <app-product-card [product]="p" />
+            }
+          </div>
+          <app-pagination [page]="r.page" [totalPages]="r.totalPages" (pageChange)="goToPage($event)" />
+        } @else {
+          <div class="empty-state">
+            <h3>Ничего не найдено</h3>
+            <p class="muted">Попробуйте изменить условия поиска или сбросить фильтры.</p>
+            <button type="button" class="btn btn-primary" (click)="resetAll()">Сбросить фильтры</button>
+          </div>
+        }
+      } @else {
+        <div class="empty-state">
+          <h3>Не удалось загрузить каталог</h3>
+          <p class="muted">Попробуйте обновить страницу позже.</p>
+          <a routerLink="/catalog" class="btn btn-ghost">Обновить</a>
+        </div>
+      }
+    </section>
+  </div>
+</div>
